@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  # 1. The Physical Simulation (Modbus Server)
+  simulation:
+    build: .
+    command: python -m simulation.modbus_server
+    ports:
+      - "5020:5020"
+    networks:
+      - scada-net
+
+  # 2. The HMI (Web Dashboard)
+  hmi:
+    build: .
+    command: uvicorn hmi.app:app --host 0.0.0.0 --port 8000
+    ports:
+      - "8000:8000"
+    depends_on:
+      - simulation
+    environment:
+      - MODBUS_HOST=simulation
+    networks:
+      - scada-net
+
+  # 3. The IDS (Defender)
+  ids:
+    build: .
+    command: python -m defender.ids
+    depends_on:
+      - simulation
+    environment:
+      - MODBUS_HOST=simulation
+    networks:
+      - scada-net
+
+networks:
+  scada-net:
+    driver: bridge
