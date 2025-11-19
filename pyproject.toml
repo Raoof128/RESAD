@@ -1,0 +1,45 @@
+[build-system]
+requires = ["setuptools>=61.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "solar-farm-scada-lab"
+version = "1.0.0"
+description = "A fully simulated OT/ICS cyber range demonstrating solar farm SCADA security."
+readme = "README.md"
+requires-python = ">=3.10"
+license = {text = "MIT"}
+authors = [
+    {name = "Solar Lab Contributors"}
+]
+dependencies = [
+    "pymodbus==3.5.4",
+    "fastapi==0.104.1",
+    "uvicorn==0.24.0",
+    "jinja2==3.1.2",
+    "websockets==12.0",
+    "scapy==2.5.0",
+    "requests==2.31.0",
+    "httpx==0.25.1"
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest==7.4.3",
+    "pytest-asyncio==0.21.1",
+    "black==23.9.1",
+    "isort==5.12.0",
+    "flake8==6.1.0",
+    "bandit==1.7.5"
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+
+[tool.black]
+line-length = 88
+target-version = ['py310']
+
+[tool.isort]
+profile = "black"

@@ -22,8 +22,14 @@ jobs:
     - name: Install dependencies
       run: |
         python -m pip install --upgrade pip
-        pip install -r requirements.txt
-        pip install pytest pytest-asyncio httpx
+        pip install -e .[dev]
+    - name: Code Quality (Black/Isort)
+      run: |
+        black --check .
+        isort --check-only .
+    - name: Security Scan (Bandit)
+      run: |
+        bandit -r simulation hmi attacker defender -ll
     - name: Run Tests
       run: |
         pytest tests/
