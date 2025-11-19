@@ -1,16 +1,18 @@
 import asyncio
-from pymodbus.client import AsyncModbusTcpClient
 import logging
+
+from pymodbus.client import AsyncModbusTcpClient
 
 TARGET_IP = "localhost"
 TARGET_PORT = 5020
 
-logging.basicConfig(level=logging.INFO, format='%(asctime)s - [RECON] - %(message)s')
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - [RECON] - %(message)s")
+
 
 async def run_recon():
     client = AsyncModbusTcpClient(TARGET_IP, port=TARGET_PORT)
     await client.connect()
-    
+
     if not client.connected:
         logging.error("Target unreachable.")
         return
@@ -21,7 +23,7 @@ async def run_recon():
     logging.info("Probe 1: Read Device Identification (Func 0x2B/0x0E)")
     # Note: pymodbus client helper for this is specific, we'll try reading registers to fingerprint if ID fails
     # In a real scenario we'd use ReadDeviceInformation, but let's stick to register scanning for this lab
-    
+
     # 2. Scan Holding Registers
     logging.info("Probe 2: Scanning Holding Registers (0-20)...")
     try:
@@ -37,6 +39,7 @@ async def run_recon():
         logging.error(f"Scan error: {e}")
 
     client.close()
+
 
 if __name__ == "__main__":
     asyncio.run(run_recon())

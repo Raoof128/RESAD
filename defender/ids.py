@@ -1,14 +1,18 @@
 import asyncio
-import logging
-from scapy.all import sniff, TCP
 import datetime
+import logging
+import os
+import sys
+
+from pymodbus.client import AsyncModbusTcpClient
+from scapy.all import TCP, sniff
 
 # Since we are running in Docker or local, we might not be able to sniff actual Modbus TCP packets easily without raw sockets privileges.
 # However, for a "Lab" we can simulate the IDS by having it tail the Modbus Server logs OR by creating a proxy.
 # Given the constraints, a Log-based IDS is more reliable for a teaching tool unless we use a proxy.
 # BUT, the user asked for a "Lightweight IDS module".
 # Let's build a Python script that *acts* as a proxy or just monitors the log file if we were writing to one.
-# BETTER APPROACH: We'll make a "Network Monitor" that connects to the Modbus server periodically to check for anomalies (Active Polling IDS) 
+# BETTER APPROACH: We'll make a "Network Monitor" that connects to the Modbus server periodically to check for anomalies (Active Polling IDS)
 # OR we can use a simple proxy script that forwards traffic and logs it.
 # Let's go with the Proxy approach as it's more educational for "MITM" and "IDS" visualization.
 
@@ -18,17 +22,15 @@ import datetime
 
 # Let's do the "State Monitor" (Anomaly Detection) approach. It's safer and easier to run.
 
-from pymodbus.client import AsyncModbusTcpClient
-import sys
-import os
-sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from simulation import config
 
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 import json
 import time
 
+from simulation import config
+
 # Configure Logging
-log_formatter = logging.Formatter('%(asctime)s - [IDS] - %(message)s')
+log_formatter = logging.Formatter("%(asctime)s - [IDS] - %(message)s")
 root_logger = logging.getLogger()
 root_logger.setLevel(logging.INFO)
 
@@ -36,6 +38,7 @@ root_logger.setLevel(logging.INFO)
 console_handler = logging.StreamHandler()
 console_handler.setFormatter(log_formatter)
 root_logger.addHandler(console_handler)
+
 
 # JSON File Handler
 class JsonFileHandler(logging.Handler):
@@ -49,13 +52,15 @@ class JsonFileHandler(logging.Handler):
             "timestamp": datetime.datetime.fromtimestamp(record.created).isoformat(),
             "level": record.levelname,
             "message": record.getMessage(),
-            "module": "IDS"
+            "module": "IDS",
         }
         with open(self.filename, "a") as f:
             f.write(json.dumps(log_entry) + "\n")
 
+
 json_handler = JsonFileHandler("ids_events.json")
 root_logger.addHandler(json_handler)
+
 
 class AnomalyDetector:
     def __init__(self):
@@ -65,7 +70,7 @@ class AnomalyDetector:
 
     async def monitor(self):
         logging.info("IDS Monitor Started. Connecting to Modbus...")
-        
+
         while True:
             try:
                 if not self.client.connected:
@@ -76,7 +81,7 @@ class AnomalyDetector:
                         logging.warning("IDS failed to connect. Retrying in 5s...")
                         await asyncio.sleep(5)
                         continue
-                
+
                 # Read Critical Registers
                 rr = await self.client.read_holding_registers(0, 10, slave=1)
                 if rr.isError():
@@ -86,21 +91,27 @@ class AnomalyDetector:
                     continue
 
                 regs = rr.registers
-                
+
                 # Rule 1: Export Limit Zeroing (Sabotage)
                 current_limit = regs[config.REG_GRID_EXPORT_LIMIT]
                 if current_limit == 0 and regs[config.REG_SOLAR_OUTPUT] > 50:
-                    logging.warning(f"ALERT: Suspicious Export Limit (0kW) while Solar is generating! Potential Sabotage.")
-                
+                    logging.warning(
+                        f"ALERT: Suspicious Export Limit (0kW) while Solar is generating! Potential Sabotage."
+                    )
+
                 # Rule 2: Frequency Instability (Grid Attack)
                 freq = regs[config.REG_GRID_FREQ]
-                if freq > 5200 or freq < 4800: # 52Hz or 48Hz
-                    logging.critical(f"ALERT: Critical Grid Frequency Deviation detected: {freq/100}Hz")
+                if freq > 5200 or freq < 4800:  # 52Hz or 48Hz
+                    logging.critical(
+                        f"ALERT: Critical Grid Frequency Deviation detected: {freq/100}Hz"
+                    )
 
                 # Rule 3: Impossible Solar Output (Replay/Injection)
                 solar = regs[config.REG_SOLAR_OUTPUT]
                 if solar > config.MAX_SOLAR_OUTPUT * 10:
-                    logging.warning(f"ALERT: Solar Output exceeds physical capacity! Value: {solar/10}kW")
+                    logging.warning(
+                        f"ALERT: Solar Output exceeds physical capacity! Value: {solar/10}kW"
+                    )
 
                 await asyncio.sleep(2)
 
@@ -111,6 +122,7 @@ class AnomalyDetector:
                 logging.error(f"IDS Loop Error: {e}")
                 self.client.close()
                 await asyncio.sleep(5)
+
 
 if __name__ == "__main__":
     ids = AnomalyDetector()
